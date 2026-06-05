@@ -145,7 +145,7 @@ const sidebarItems = [
     { id: 'links', label: 'Links', icon: ChainIcon },
     { id: 'appearance', label: 'Aparência', icon: PaletteIcon },
     { id: 'qr', label: 'QR Code', icon: QrIcon },
-    { id: 'leads', label: 'Leads', icon: UsersIcon, badge: '12', premium: true },
+    { id: 'leads', label: 'Leads', icon: UsersIcon, premium: true },
     { id: 'analytics', label: 'Estatísticas', icon: BarChartIcon, premium: true },
     { id: 'settings', label: 'Configurações', icon: SettingsIcon },
 ];
@@ -360,7 +360,7 @@ function UpgradeTopBanner({ onUpgrade }) {
     );
 }
 
-function StripeSubscriptionForm({ onSuccess }) {
+function StripeSubscriptionForm({ formId, onSubmitStateChange, onSuccess }) {
     const stripe = useStripe();
     const elements = useElements();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -374,6 +374,7 @@ function StripeSubscriptionForm({ onSuccess }) {
         }
 
         setIsSubmitting(true);
+        onSubmitStateChange?.(true);
         setErrorMessage('');
 
         const { error } = await stripe.confirmPayment({
@@ -385,36 +386,259 @@ function StripeSubscriptionForm({ onSuccess }) {
         });
 
         if (error) {
-            setErrorMessage(error.message ?? 'Não foi possível confirmar o pagamento.');
+            setErrorMessage(formatStripeClientError(error));
             setIsSubmitting(false);
+            onSubmitStateChange?.(false);
             return;
         }
 
         setIsSubmitting(false);
+        onSubmitStateChange?.(false);
         onSuccess?.();
     };
 
     return (
-        <form className="mt-6" onSubmit={handleSubmit}>
+        <form className="mt-6" id={formId} onSubmit={handleSubmit}>
             <div className="rounded-[28px] border border-[#e8dece] bg-white p-6 shadow-[0_12px_28px_rgba(31,23,10,0.04)]">
                 <PaymentElement options={{ layout: 'tabs' }} />
                 {errorMessage ? <p className="mt-4 text-sm text-rose-600">{errorMessage}</p> : null}
-                <button
-                    className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[#0f5c3f] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#0c4f37] disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={!stripe || isSubmitting}
-                    type="submit"
-                >
-                    <SparkIcon className="mr-2 h-4 w-4" />
-                    {isSubmitting ? 'Processando pagamento...' : 'Confirmar pagamento'}
-                </button>
             </div>
         </form>
     );
 }
 
-function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscriptionIntentRoute, publishableKey, stripeMode, onBack, onPaymentSuccess, onSelectCycle }) {
+function formatStripeClientError(error) {
+    if (!error) {
+        return 'Não foi possível confirmar o pagamento.';
+    }
+
+    const details = [];
+
+    if (error.decline_code) {
+        details.push(`motivo ${error.decline_code}`);
+    }
+
+    if (error.code) {
+        details.push(`código ${error.code}`);
+    }
+
+    if (error.type && details.length === 0) {
+        details.push(`tipo ${error.type}`);
+    }
+
+    if (error.message) {
+        return details.length > 0 ? `${error.message} (${details.join(' | ')})` : error.message;
+    }
+
+    return details.length > 0
+        ? `Não foi possível confirmar o pagamento. (${details.join(' | ')})`
+        : 'Não foi possível confirmar o pagamento.';
+}
+
+function formatStripeApiError(error) {
+    const stripe = error?.stripe ?? null;
+
+    if (!stripe) {
+        return error?.message ?? 'Não foi possível iniciar o pagamento.';
+    }
+
+    const details = [];
+
+    if (stripe.decline_code) {
+        details.push(`motivo ${stripe.decline_code}`);
+    }
+
+    if (stripe.code) {
+        details.push(`código ${stripe.code}`);
+    }
+
+    if (stripe.param) {
+        details.push(`campo ${stripe.param}`);
+    }
+
+    if (stripe.type && details.length === 0) {
+        details.push(`tipo ${stripe.type}`);
+    }
+
+    return details.length > 0
+        ? `${error.message} (${details.join(' | ')})`
+        : (error.message ?? 'Não foi possível iniciar o pagamento.');
+}
+
+function UpgradePlanCard({ name, eyebrow, price, priceSuffix, crossedPrice, description, benefits, ctaLabel, featured = false, onSelect, disabled = false }) {
+    return (
+        <article
+            className={cx(
+                'overflow-hidden rounded-[30px] border bg-white shadow-[0_12px_30px_rgba(31,23,10,0.04)]',
+                featured ? 'border-[#0f5c3f]' : 'border-[#e8dece]',
+            )}
+        >
+            <div className={cx('p-7', featured ? 'bg-[#0f5c3f] text-white' : 'bg-white text-stone-950')}>
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="text-[2.4rem] font-semibold tracking-[-0.06em]">{name}</h2>
+                        <p className={cx('mt-3 max-w-[26ch] text-base leading-6', featured ? 'text-white/85' : 'text-stone-500')}>{description}</p>
+                    </div>
+                    {featured ? (
+                        <span className="rounded-full bg-[#d6f56c] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#17311f]">
+                            Recomendado
+                        </span>
+                    ) : null}
+                </div>
+            </div>
+
+            <div className="p-7">
+                <div className="flex items-end gap-3">
+                    <strong className="text-[2.4rem] font-semibold tracking-[-0.06em] text-stone-950">{price}</strong>
+                    <span className="pb-1 text-base text-stone-500">{priceSuffix}</span>
+                    {crossedPrice ? <span className="pb-1 text-[1.6rem] font-semibold text-stone-300 line-through">{crossedPrice}</span> : null}
+                </div>
+                {eyebrow ? <p className="mt-2 text-sm text-stone-500">{eyebrow}</p> : null}
+
+                <button
+                    className={cx(
+                        'mt-7 inline-flex w-full items-center justify-center rounded-full px-5 py-4 text-sm font-semibold transition',
+                        featured
+                            ? 'bg-[#0f5c3f] text-white hover:bg-[#0c4f37]'
+                            : 'border border-[#d9d1c4] bg-white text-stone-900 hover:border-stone-400',
+                        disabled ? 'cursor-not-allowed opacity-60 hover:bg-inherit hover:border-[#d9d1c4]' : '',
+                    )}
+                    disabled={disabled}
+                    onClick={onSelect}
+                    type="button"
+                >
+                    {ctaLabel}
+                </button>
+
+                <div className="mt-7 border-t border-[#ece4d6] pt-7">
+                    <p className="text-lg font-semibold tracking-[-0.03em] text-stone-900">{benefits.title}</p>
+                    <ul className="mt-5 space-y-4">
+                        {benefits.items.map((item) => (
+                            <li className="flex gap-3" key={item.title}>
+                                <CheckIcon className="mt-1 h-4 w-4 shrink-0 text-[#0f5c3f]" />
+                                <div>
+                                    <p className="font-medium text-stone-900">{item.title}</p>
+                                    {item.description ? <p className="text-sm leading-6 text-stone-500">{item.description}</p> : null}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </article>
+    );
+}
+
+function UpgradePlansScreen({ onBack, onSelectPlan, currentPlan }) {
+    const planCards = [
+        {
+            key: 'free',
+            name: 'Free',
+            description: 'Para quem está começando a organizar sua presença online.',
+            price: 'R$ 0',
+            priceSuffix: '/mês',
+            eyebrow: 'Plano atual para criar sua página e publicar seus links.',
+            ctaLabel: currentPlan === 'free' ? 'Plano atual' : 'Voltar ao Free',
+            disabled: true,
+            benefits: {
+                title: 'Inclui:',
+                items: [
+                    { title: 'Página pública personalizada', description: 'Seu link na bio com identidade visual básica.' },
+                    { title: 'Links ilimitados', description: 'Adicione, edite e reordene seus links quando quiser.' },
+                    { title: 'QR Code e aparência base', description: 'Compartilhe sua página e ajuste o essencial.' },
+                ],
+            },
+        },
+        {
+            key: 'monthly',
+            name: 'Pro Mensal',
+            description: 'Para criadores e negócios que querem destravar recursos premium rapidamente.',
+            price: 'R$ 42',
+            priceSuffix: '/mês',
+            eyebrow: 'Cobrança mensal recorrente com cancelamento a qualquer momento.',
+            crossedPrice: null,
+            ctaLabel: 'Testar e ir para o checkout',
+            benefits: {
+                title: 'Tudo do Free e mais:',
+                items: [
+                    { title: 'Estatísticas completas', description: 'Acompanhe visitas, cliques e desempenho dos seus links.' },
+                    { title: 'Leads desbloqueados', description: 'Visualize contatos e oportunidades dentro do painel.' },
+                    { title: 'Mais temas premium', description: 'Libere todas as opções visuais da vitrine de temas.' },
+                    { title: 'Remover logo da MyLinks' },
+                    { title: 'Visual e layouts personalizados', description: 'Cores e temas personalizados para combinar com o estilo da sua marca.' },
+                    { title: 'Suporte prioritário', description: 'Soluções sob medida para você com suporte prioritário.' },
+                ],
+            },
+        },
+        {
+            key: 'annual',
+            name: 'Pro Anual',
+            description: 'A opção mais vantajosa para crescer com economia e manter tudo liberado o ano inteiro.',
+            price: 'R$ 32',
+            priceSuffix: '/mês',
+            eyebrow: 'Cobrado anualmente em R$ 384 com economia de 24% sobre o mensal.',
+            crossedPrice: 'R$ 42',
+            ctaLabel: 'Teste gratuitamente por 7 dias',
+            featured: true,
+            benefits: {
+                title: 'Tudo do Pro Mensal e mais:',
+                items: [
+                    { title: 'Melhor custo-benefício', description: 'Economia automática ao manter seu plano por 12 meses.' },
+                    { title: 'Recursos pro sem limite', description: 'Estatísticas, leads e temas premium liberados o tempo todo.' },
+                    { title: 'Remover logo da MyLinks' },
+                    { title: 'Visual e layouts personalizados', description: 'Cores e temas personalizados para combinar com o estilo da sua marca.' },
+                    { title: 'Suporte prioritário', description: 'Soluções sob medida para você com suporte prioritário.' },
+                ],
+            },
+        },
+    ];
+
+    return (
+        <section className="mx-auto max-w-[1540px] px-6 py-8 lg:px-8 xl:px-10">
+            <button
+                className="inline-flex items-center gap-2 text-sm font-medium text-[#0f5c3f] transition hover:text-[#0c4f37]"
+                onClick={onBack}
+                type="button"
+            >
+                <ChevronLeftIcon className="h-4 w-4" />
+                Voltar
+            </button>
+
+            <div className="mx-auto mt-10 max-w-[980px] text-center">
+                <h1 className="text-[3.6rem] font-semibold leading-[0.94] tracking-[-0.07em] text-stone-950">
+                    Encontre o plano ideal para voce
+                </h1>
+                <p className="mt-4 text-[1.15rem] text-stone-500">
+                    Voce pode cancelar a qualquer momento e seguir para o checkout assim que escolher o plano.
+                </p>
+            </div>
+
+            <div className="mt-12 grid gap-6 xl:grid-cols-3">
+                {planCards.map((plan) => (
+                    <UpgradePlanCard
+                        benefits={plan.benefits}
+                        crossedPrice={plan.crossedPrice}
+                        ctaLabel={plan.ctaLabel}
+                        description={plan.description}
+                        disabled={plan.disabled}
+                        eyebrow={plan.eyebrow}
+                        featured={plan.featured}
+                        key={plan.key}
+                        name={plan.name}
+                        onSelect={plan.key === 'free' ? undefined : () => onSelectPlan(plan.key)}
+                        price={plan.price}
+                        priceSuffix={plan.priceSuffix}
+                    />
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function UpgradeCheckoutScreen({ billingCycle, createSubscriptionIntentRoute, publishableKey, stripeMode, onBack, onPaymentSuccess, onSelectCycle }) {
     const isAnnual = billingCycle === 'annual';
-    const selectedCheckoutLink = isAnnual ? checkoutLinks.annual : checkoutLinks.monthly;
+    const paymentFormId = useId();
+    const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
     const [checkoutState, setCheckoutState] = useState({
         clientSecret: '',
         error: '',
@@ -483,7 +707,7 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
 
                 setCheckoutState({
                     clientSecret: '',
-                    error: error.message,
+                    error: formatStripeApiError(error),
                     isLoading: false,
                     publishableKey,
                 });
@@ -497,7 +721,7 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
     return (
         <section className="mx-auto max-w-[1540px] px-6 py-8 lg:px-8 xl:px-10">
             <button
-                className="inline-flex items-center gap-2 text-sm font-medium text-[#6d4aff] transition hover:text-[#5838ff]"
+                className="inline-flex items-center gap-2 text-sm font-medium text-[#0f5c3f] transition hover:text-[#0c4f37]"
                 onClick={onBack}
                 type="button"
             >
@@ -520,12 +744,12 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
                             <button
                                 className={cx(
                                     'relative rounded-[24px] border p-6 text-left transition',
-                                    isAnnual ? 'border-[#6d4aff] bg-[#f6f1ff] shadow-[0_14px_32px_rgba(109,74,255,0.08)]' : 'border-[#e8dece] bg-white hover:border-stone-300',
+                                    isAnnual ? 'border-[#0f5c3f] bg-[#eef7f1] shadow-[0_14px_32px_rgba(15,92,63,0.12)]' : 'border-[#e8dece] bg-white hover:border-stone-300',
                                 )}
                                 onClick={() => onSelectCycle('annual')}
                                 type="button"
                             >
-                                <span className="absolute right-4 top-4 rounded-full bg-[#6d4aff] px-3 py-1 text-xs font-semibold text-white">Economize 24%</span>
+                                <span className="absolute right-4 top-4 rounded-full bg-[#0f5c3f] px-3 py-1 text-xs font-semibold text-white">Economize 24%</span>
                                 <p className="text-[2rem] font-semibold tracking-[-0.05em] text-stone-950">R$ 32<span className="ml-1 text-base font-medium text-stone-500">/mês</span></p>
                                 <p className="mt-1 text-lg font-medium text-stone-900">Anual</p>
                                 <p className="mt-2 text-sm text-stone-500">R$ 384/ano, cobrança recorrente</p>
@@ -533,7 +757,7 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
                             <button
                                 className={cx(
                                     'rounded-[24px] border p-6 text-left transition',
-                                    !isAnnual ? 'border-[#6d4aff] bg-[#f6f1ff] shadow-[0_14px_32px_rgba(109,74,255,0.08)]' : 'border-[#e8dece] bg-white hover:border-stone-300',
+                                    !isAnnual ? 'border-[#0f5c3f] bg-[#eef7f1] shadow-[0_14px_32px_rgba(15,92,63,0.12)]' : 'border-[#e8dece] bg-white hover:border-stone-300',
                                 )}
                                 onClick={() => onSelectCycle('monthly')}
                                 type="button"
@@ -554,7 +778,6 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
                                 </span>
                                 <div>
                                     <p className="font-medium text-stone-900">Digite seu cartão aqui</p>
-                                    <p className="text-sm text-stone-500">Formulário seguro do Stripe Elements integrado ao MyLinks.</p>
                                 </div>
                             </div>
                             {checkoutState.isLoading ? (
@@ -579,22 +802,23 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
                                     }}
                                     stripe={stripePromise}
                                 >
-                                    <StripeSubscriptionForm onSuccess={onPaymentSuccess} />
+                                    <StripeSubscriptionForm
+                                        formId={paymentFormId}
+                                        onSubmitStateChange={setIsConfirmingPayment}
+                                        onSuccess={onPaymentSuccess}
+                                    />
                                 </Elements>
                             ) : (
                                 <div className="mt-6 rounded-[28px] border border-[#e8dece] bg-white p-6 text-sm text-stone-500">
                                     O formulário de pagamento ainda não está disponível.
                                 </div>
                             )}
-                            <p className="mt-4 text-sm text-stone-500">
-                                Ambiente {stripeMode === 'test' ? 'de teste' : 'de produção'} Stripe. Em teste, use cartões de teste.
-                            </p>
                         </div>
                     </div>
                 </div>
 
                 <aside className="self-start rounded-[30px] border border-[#e8dece] bg-white p-6 shadow-[0_12px_30px_rgba(31,23,10,0.04)]">
-                    <h2 className="text-[2rem] font-semibold tracking-[-0.05em] text-stone-950">Seu plano de teste</h2>
+                    <h2 className="text-[2rem] font-semibold tracking-tighter text-stone-950">Seu plano de teste</h2>
                     <div className="mt-6 border-t border-[#ece4d6] pt-6">
                         <div className="flex items-start justify-between gap-4">
                             <div>
@@ -605,7 +829,7 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
                                 <p className="text-sm text-stone-400 line-through">{isAnnual ? 'R$ 384,00' : 'R$ 42,00'}</p>
                             </div>
                         </div>
-                        <button className="mt-6 text-sm font-medium text-[#6d4aff]" type="button">Adicione um código de cupom</button>
+                        <button className="mt-6 text-sm font-medium text-[#0f5c3f]" type="button">Adicione um código de cupom</button>
                     </div>
                     <div className="mt-8 border-t border-[#ece4d6] pt-6">
                         <div className="flex items-center justify-between text-stone-700">
@@ -614,21 +838,21 @@ function UpgradeCheckoutScreen({ billingCycle, checkoutLinks, createSubscription
                         </div>
                         <div className="mt-4 flex items-end justify-between">
                             <span className="font-semibold text-stone-950">Cobrança de hoje</span>
-                            <span className="text-[2.2rem] font-semibold tracking-[-0.05em] text-stone-950">{isAnnual ? 'R$ 384' : 'R$ 42'}</span>
+                            <span className="text-[2.2rem] font-semibold tracking-tighter text-stone-950">{isAnnual ? 'R$ 384' : 'R$ 42'}</span>
                         </div>
-                        <a
-                            className="mt-8 inline-flex w-full items-center justify-center rounded-full border border-[#e8dece] bg-white px-5 py-4 text-sm font-semibold text-stone-700 transition hover:border-stone-300"
-                            href={selectedCheckoutLink || undefined}
-                            rel="noreferrer"
-                            target="_blank"
+                        <button
+                            className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-[#0f5c3f] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#0c4f37] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={checkoutState.isLoading || Boolean(checkoutState.error) || !checkoutState.clientSecret || isConfirmingPayment}
+                            form={paymentFormId}
+                            type="submit"
                         >
                             <SparkIcon className="mr-2 h-4 w-4" />
-                            Abrir checkout hospedado do Stripe
-                        </a>
+                            {isConfirmingPayment ? 'Processando pagamento...' : 'Confirmar pagamento'}
+                        </button>
                         <p className="mt-5 text-center text-sm leading-6 text-stone-500">
                             {stripeMode === 'test'
-                                ? 'Ambiente de teste Stripe ativo. Você pode usar o checkout embutido acima ou abrir a versão hospedada do Stripe.'
-                                : 'Você pode pagar no formulário acima ou abrir a versão hospedada do Stripe.'}
+                                ? 'Ambiente de teste Stripe ativo. Use um cartão de teste da Stripe para validar o fluxo.'
+                                : 'Seu pagamento será processado com segurança pela Stripe.'}
                         </p>
                     </div>
                 </aside>
@@ -800,6 +1024,7 @@ async function requestJson(url, options = {}) {
     if (!response.ok) {
         const error = new Error(payload.message ?? 'Não foi possível concluir a ação.');
         error.validation = payload.errors ?? null;
+        error.stripe = payload.stripe ?? null;
         throw error;
     }
 
@@ -1295,7 +1520,7 @@ export default function MyLinksDashboard({ initialData = {} }) {
     const [editingLinkSnapshot, setEditingLinkSnapshot] = useState(null);
     const [editingLinkError, setEditingLinkError] = useState('');
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
-    const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
+    const [upgradeStep, setUpgradeStep] = useState(null);
     const [billingCycle, setBillingCycle] = useState('annual');
     const [status, setStatus] = useState({ type: 'success', message: '' });
     const [showOnboarding, setShowOnboarding] = useState(!(initialData.page?.onboarding_completed ?? false));
@@ -1434,6 +1659,21 @@ export default function MyLinksDashboard({ initialData = {} }) {
     const updateLinkState = (id, field, value) => {
         setLinks((current) => current.map((link) => (link.id === id ? { ...link, [field]: value } : link)));
         setStatus({ type: 'idle', message: 'Alterações não publicadas' });
+    };
+
+    const handleLogout = async () => {
+        try {
+            await fetch(routes.logout, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                },
+                credentials: 'same-origin',
+            });
+        } finally {
+            window.location.assign(routes.landing ?? '/');
+        }
     };
 
     const handleProfileImageUpload = async (event) => {
@@ -1690,11 +1930,6 @@ export default function MyLinksDashboard({ initialData = {} }) {
         void persistOrder(reordered, previous);
     };
 
-    const openUpgradeCheckout = () => {
-        setBillingCycle('annual');
-        setShowUpgradeCheckout(true);
-    };
-
     const showMainOverview = activeMenu === 'dashboard';
     const showProfileSection = showMainOverview;
     const showLinksSection = showMainOverview || activeMenu === 'links';
@@ -1720,14 +1955,34 @@ export default function MyLinksDashboard({ initialData = {} }) {
         );
     }
 
-    if (showUpgradeCheckout) {
+    const openUpgradePlans = () => {
+        setUpgradeStep('plans');
+    };
+
+    const openUpgradeCheckout = (cycle = 'annual') => {
+        setBillingCycle(cycle);
+        setUpgradeStep('checkout');
+    };
+
+    if (upgradeStep === 'plans') {
+        return (
+            <main className="min-h-screen bg-[#fbf8f1] text-stone-900">
+                <UpgradePlansScreen
+                    currentPlan={currentPlan}
+                    onBack={() => setUpgradeStep(null)}
+                    onSelectPlan={(planKey) => openUpgradeCheckout(planKey === 'monthly' ? 'monthly' : 'annual')}
+                />
+            </main>
+        );
+    }
+
+    if (upgradeStep === 'checkout') {
         return (
             <main className="min-h-screen bg-[#fbf8f1] text-stone-900">
                 <UpgradeCheckoutScreen
                     billingCycle={billingCycle}
-                    checkoutLinks={checkoutLinks}
                     createSubscriptionIntentRoute={routes.createSubscriptionIntent}
-                    onBack={() => setShowUpgradeCheckout(false)}
+                    onBack={() => setUpgradeStep('plans')}
                     onPaymentSuccess={() => setStatus({ type: 'success', message: 'Pagamento confirmado. Estamos atualizando seu plano.' })}
                     onSelectCycle={setBillingCycle}
                     publishableKey={publishableKey}
@@ -1744,7 +1999,7 @@ export default function MyLinksDashboard({ initialData = {} }) {
                 <div className="absolute inset-y-0 left-[270px] hidden w-px bg-[#ece4d6] xl:block" />
             </div>
 
-            {isFreePlan ? <UpgradeTopBanner onUpgrade={openUpgradeCheckout} /> : null}
+            {isFreePlan ? <UpgradeTopBanner onUpgrade={openUpgradePlans} /> : null}
 
             <div className="relative mx-auto min-h-screen max-w-[1540px] xl:grid xl:grid-cols-[270px_minmax(0,1fr)]">
                 <aside className="border-r border-[#ece4d6] bg-[#fdfaf3] px-4 py-6 xl:flex xl:min-h-screen xl:flex-col">
@@ -1770,16 +2025,14 @@ export default function MyLinksDashboard({ initialData = {} }) {
                                 <p className="truncate text-[0.78rem] text-stone-500">{accountEmail}</p>
                             </div>
                         </div>
-                        <form action={routes.logout} className="mt-3" method="POST">
-                            <input name="_token" type="hidden" value={csrfToken} />
-                            <button
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#e8dece] bg-[#fdfaf3] px-3 py-2 text-[0.85rem] font-medium text-stone-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-                                type="submit"
-                            >
-                                <LogoutIcon className="h-4 w-4" />
-                                Sair
-                            </button>
-                        </form>
+                        <button
+                            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#e8dece] bg-[#fdfaf3] px-3 py-2 text-[0.85rem] font-medium text-stone-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                            onClick={() => void handleLogout()}
+                            type="button"
+                        >
+                            <LogoutIcon className="h-4 w-4" />
+                            Sair
+                        </button>
                     </div>
 
                     <nav className="mt-5 space-y-1">

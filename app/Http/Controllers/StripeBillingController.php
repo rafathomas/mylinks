@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -34,15 +36,23 @@ class StripeBillingController extends Controller
             ], 422);
         }
 
-        $customerId = $user->stripe_customer_id ?: $this->createCustomer($secretKey, $user->name, $user->email, $user->id);
+        try {
+            $customerId = $user->stripe_customer_id ?: $this->createCustomer($secretKey, $user->name, $user->email, $user->id);
 
-        $subscription = $this->createSubscription(
-            secretKey: $secretKey,
-            customerId: $customerId,
-            priceId: $priceId,
-            userId: $user->id,
-            email: $user->email,
-        );
+            $subscription = $this->createSubscription(
+                secretKey: $secretKey,
+                customerId: $customerId,
+                priceId: $priceId,
+                userId: $user->id,
+                email: $user->email,
+            );
+        } catch (RequestException $exception) {
+            return response()->json($this->formatStripeRequestError($exception), 422);
+        } catch (ConnectionException $exception) {
+            return response()->json([
+                'message' => 'Não foi possível se conectar ao Stripe. Tente novamente em instantes.',
+            ], 503);
+        }
 
         $clientSecret = data_get($subscription, 'latest_invoice.confirmation_secret.client_secret');
 
@@ -98,5 +108,22 @@ class StripeBillingController extends Controller
             ])
             ->throw()
             ->json();
+    }
+
+    private function formatStripeRequestError(RequestException $exception): array
+    {
+        $payload = $exception->response?->json() ?? [];
+        $stripeError = data_get($payload, 'error', []);
+        $message = data_get($stripeError, 'message') ?: 'O Stripe não conseguiu iniciar o pagamento.';
+
+        return array_filter([
+            'message' => $message,
+            'stripe' => array_filter([
+                'type' => data_get($stripeError, 'type'),
+                'code' => data_get($stripeError, 'code'),
+                'decline_code' => data_get($stripeError, 'decline_code'),
+                'param' => data_get($stripeError, 'param'),
+            ]),
+        ]);
     }
 }

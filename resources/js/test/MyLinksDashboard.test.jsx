@@ -103,6 +103,8 @@ describe('MyLinksDashboard', () => {
     beforeEach(() => {
         document.head.innerHTML = '<meta name="csrf-token" content="test-token">';
         global.fetch = vi.fn();
+        globalThis.__stripeConfirmPaymentMock.mockReset();
+        globalThis.__stripeConfirmPaymentMock.mockResolvedValue({});
     });
 
     test('renders the main dashboard screen', () => {
@@ -558,7 +560,26 @@ describe('MyLinksDashboard', () => {
         expect(screen.getByLabelText('Sergey Amir bloqueado')).toBeInTheDocument();
     });
 
-    test('opens the upgrade checkout screen from the free-plan banner', async () => {
+    test('opens the upgrade plans screen from the free-plan banner', async () => {
+        const user = userEvent.setup();
+        const freePlanData = {
+            ...initialData,
+            page: {
+                ...initialData.page,
+                plan: 'free',
+            },
+        };
+
+        render(<MyLinksDashboard initialData={freePlanData} />);
+
+        await user.click(screen.getByRole('button', { name: 'Fazer upgrade' }));
+
+        expect(screen.getByRole('heading', { name: 'Encontre o plano ideal para voce' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Teste gratuitamente por 7 dias' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Testar e ir para o checkout' })).toBeInTheDocument();
+    });
+
+    test('opens the checkout screen from the selected plan card', async () => {
         const user = userEvent.setup();
         const freePlanData = {
             ...initialData,
@@ -580,13 +601,80 @@ describe('MyLinksDashboard', () => {
         render(<MyLinksDashboard initialData={freePlanData} />);
 
         await user.click(screen.getByRole('button', { name: 'Fazer upgrade' }));
+        await user.click(screen.getByRole('button', { name: 'Teste gratuitamente por 7 dias' }));
 
         expect(screen.getByRole('heading', { name: 'Escolha seu plano Pro' })).toBeInTheDocument();
         expect(screen.getByText('Ciclo de cobrança')).toBeInTheDocument();
         expect(screen.getByText('Seu plano de teste')).toBeInTheDocument();
         expect(screen.getByText('Digite seu cartão aqui')).toBeInTheDocument();
         expect(await screen.findByTestId('payment-element')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Abrir checkout hospedado do Stripe' })).toHaveAttribute('href', 'https://buy.stripe.com/test_annual');
+        expect(screen.getAllByRole('button', { name: 'Confirmar pagamento' }).length).toBeGreaterThan(0);
+    });
+
+    test('shows detailed Stripe API errors when subscription intent creation fails', async () => {
+        const user = userEvent.setup();
+        const freePlanData = {
+            ...initialData,
+            page: {
+                ...initialData.page,
+                plan: 'free',
+            },
+        };
+
+        global.fetch.mockResolvedValueOnce({
+            ok: false,
+            json: async () => ({
+                message: 'Seu cartão foi recusado.',
+                stripe: {
+                    code: 'card_declined',
+                    decline_code: 'generic_decline',
+                },
+            }),
+        });
+
+        render(<MyLinksDashboard initialData={freePlanData} />);
+
+        await user.click(screen.getByRole('button', { name: 'Fazer upgrade' }));
+        await user.click(screen.getByRole('button', { name: 'Teste gratuitamente por 7 dias' }));
+
+        expect(await screen.findByText('Seu cartão foi recusado. (motivo generic_decline | código card_declined)')).toBeInTheDocument();
+    });
+
+    test('shows detailed Stripe confirmation errors when confirmPayment fails', async () => {
+        const user = userEvent.setup();
+        const freePlanData = {
+            ...initialData,
+            page: {
+                ...initialData.page,
+                plan: 'free',
+            },
+        };
+
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                client_secret: 'seti_test_secret',
+                publishable_key: 'pk_test_123',
+                subscription_id: 'sub_test_123',
+            }),
+        });
+
+        globalThis.__stripeConfirmPaymentMock.mockResolvedValueOnce({
+            error: {
+                message: 'Seu cartão foi recusado.',
+                code: 'card_declined',
+                decline_code: 'insufficient_funds',
+            },
+        });
+
+        render(<MyLinksDashboard initialData={freePlanData} />);
+
+        await user.click(screen.getByRole('button', { name: 'Fazer upgrade' }));
+        await user.click(screen.getByRole('button', { name: 'Teste gratuitamente por 7 dias' }));
+        await screen.findByTestId('payment-element');
+        await user.click(screen.getByRole('button', { name: 'Confirmar pagamento' }));
+
+        expect(await screen.findByText('Seu cartão foi recusado. (motivo insufficient_funds | código card_declined)')).toBeInTheDocument();
     });
 
     test('updates button appearance controls and reflects them in the preview', async () => {

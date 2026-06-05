@@ -84,6 +84,24 @@ class PublicPageTest extends TestCase
         ]);
     }
 
+    public function test_public_page_uses_the_selected_theme_preset_surface(): void
+    {
+        $page = LinkPage::factory()->create([
+            'slug' => 'retro-grid',
+            'is_published' => true,
+            'selected_theme_id' => 'retro-grid',
+            'theme' => 'sand',
+            'background_type' => 'color',
+            'background_value' => '#5F4042',
+            'bio' => 'Tema publicado deve refletir a previa.',
+        ]);
+
+        $this->get(route('pages.show', $page->slug))
+            ->assertOk()
+            ->assertSee('background-color: #5f4042; background-image: linear-gradient(rgba(255,255,255,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.06) 1px,transparent 1px); background-size: 22px 22px;', false)
+            ->assertSee('text-[#f5e7ce]', false);
+    }
+
     public function test_social_redirect_records_click_event_and_redirects_to_social_url(): void
     {
         $page = LinkPage::factory()->create([

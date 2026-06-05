@@ -5,17 +5,97 @@
 
 @section('content')
     @php
+        $selectedThemePresets = [
+            'midnight-echo' => [
+                'background_style' => 'background: #050505;',
+                'text_class' => 'text-white',
+                'muted_text_class' => 'text-white/85',
+            ],
+            'sky-bloom' => [
+                'background_style' => 'background: linear-gradient(180deg,#b8d7df 0%,#d9caea 64%,#e67c55 100%);',
+                'text_class' => 'text-[#40333d]',
+                'muted_text_class' => 'text-[#40333d]/85',
+            ],
+            'retro-grid' => [
+                'background_style' => 'background-color: #5f4042; background-image: linear-gradient(rgba(255,255,255,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.06) 1px,transparent 1px); background-size: 22px 22px;',
+                'text_class' => 'text-[#f5e7ce]',
+                'muted_text_class' => 'text-[#f5e7ce]/85',
+            ],
+            'editorial-cream' => [
+                'background_style' => 'background: #f5eddf;',
+                'text_class' => 'text-[#de4a3d]',
+                'muted_text_class' => 'text-[#de4a3d]/85',
+            ],
+            'forest-room' => [
+                'background_style' => 'background: #132f28;',
+                'text_class' => 'text-[#eef7e2]',
+                'muted_text_class' => 'text-[#eef7e2]/85',
+            ],
+            'paper-light' => [
+                'background_style' => 'background: #eceef4;',
+                'text_class' => 'text-[#0a0a0a]',
+                'muted_text_class' => 'text-[#0a0a0a]/85',
+            ],
+            'grain-shadow' => [
+                'background_style' => 'background-color: #6f665e; background-image: radial-gradient(circle at 20% 20%,rgba(255,255,255,0.08),transparent 18%),repeating-linear-gradient(90deg,rgba(255,255,255,0.06) 0,rgba(255,255,255,0.06) 2px,transparent 2px,transparent 7px);',
+                'text_class' => 'text-[#f3ece5]',
+                'muted_text_class' => 'text-[#f3ece5]/85',
+            ],
+            'plum-store' => [
+                'background_style' => 'background: linear-gradient(180deg,#471331 0%,#764a79 100%);',
+                'text_class' => 'text-white',
+                'muted_text_class' => 'text-white/85',
+            ],
+            'violet-pop' => [
+                'background_style' => 'background-color: #8a5db7; background-image: radial-gradient(circle at 20% 15%,rgba(255,255,255,0.16),transparent 16%),radial-gradient(circle at 80% 10%,rgba(255,255,255,0.15),transparent 14%),radial-gradient(circle at 25% 75%,rgba(76,29,149,0.38),transparent 18%),radial-gradient(circle at 75% 65%,rgba(76,29,149,0.3),transparent 18%);',
+                'text_class' => 'text-white',
+                'muted_text_class' => 'text-white/85',
+            ],
+            'powder-air' => [
+                'background_style' => 'background: #c8d8e3;',
+                'text_class' => 'text-[#31424e]',
+                'muted_text_class' => 'text-[#31424e]/85',
+            ],
+            'mono-ink' => [
+                'background_style' => 'background: #e8e5d9;',
+                'text_class' => 'text-[#111111]',
+                'muted_text_class' => 'text-[#111111]/85',
+            ],
+            'sun-halo' => [
+                'background_style' => 'background: radial-gradient(circle at 50% 55%,#e96857 0%,#f0a95b 28%,#7fd0a9 100%);',
+                'text_class' => 'text-white',
+                'muted_text_class' => 'text-white/85',
+            ],
+            'night-drive' => [
+                'background_style' => 'background: #1e1d1d;',
+                'text_class' => 'text-[#f3ede7]',
+                'muted_text_class' => 'text-[#f3ede7]/85',
+            ],
+            'rose-cloud' => [
+                'background_style' => 'background: #f3e5e8;',
+                'text_class' => 'text-[#3d3338]',
+                'muted_text_class' => 'text-[#3d3338]/85',
+            ],
+        ];
+
         $themeFallbacks = [
             'mylinks' => 'linear-gradient(180deg, rgba(8, 28, 20, 0.3), rgba(8, 28, 20, 0.5)), url("https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80")',
             'graphite' => 'linear-gradient(180deg, rgba(248, 248, 245, 0.98), rgba(231, 232, 227, 0.98))',
             'sand' => 'linear-gradient(180deg, rgba(58, 41, 19, 0.22), rgba(58, 41, 19, 0.42)), url("https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80")',
         ];
 
-        $backgroundStyle = $page->background_type === 'color'
+        $selectedThemePreset = $page->selected_theme_id ? ($selectedThemePresets[$page->selected_theme_id] ?? null) : null;
+        $usesPresetSurface = $selectedThemePreset !== null && ! $page->background_image_path;
+
+        $pageBackgroundStyle = $page->background_type === 'color'
             ? 'background-color: '.($page->background_value ?: '#456B5B').';'
             : ($page->background_image_path
                 ? 'background-image: linear-gradient(180deg, rgba(8, 28, 20, 0.3), rgba(8, 28, 20, 0.5)), url("'.route('pages.background.show', $page).'"); background-size: cover; background-position: center;'
                 : 'background-image: '.($themeFallbacks[$page->theme] ?? $themeFallbacks['mylinks']).'; background-size: cover; background-position: center;');
+
+        $surfaceStyle = $usesPresetSurface
+            ? $selectedThemePreset['background_style']
+            : $pageBackgroundStyle;
 
         $isDarkPreview = false;
 
@@ -33,8 +113,8 @@
             $isDarkPreview = $page->theme !== 'graphite';
         }
 
-        $previewTextClass = $isDarkPreview ? 'text-white' : 'text-stone-950';
-        $previewMutedTextClass = $isDarkPreview ? 'text-white/85' : 'text-stone-900/85';
+        $previewTextClass = $selectedThemePreset['text_class'] ?? ($isDarkPreview ? 'text-white' : 'text-stone-950');
+        $previewMutedTextClass = $selectedThemePreset['muted_text_class'] ?? ($isDarkPreview ? 'text-white/85' : 'text-stone-900/85');
 
         $buttonColor = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $page->button_color) ? strtoupper((string) $page->button_color) : '#FFFFFF';
         $buttonTextColor = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $page->button_text_color) ? strtoupper((string) $page->button_text_color) : '#111827';
@@ -116,9 +196,11 @@
         };
     @endphp
 
-    <main class="grid min-h-screen place-items-center px-6 py-10" style="{{ $backgroundStyle }}">
-        <section class="w-full max-w-xl rounded-[42px] border border-black/8 bg-white/75 p-8 shadow-[0_28px_80px_rgba(25,36,31,0.11)] backdrop-blur-2xl">
-            <div class="flex min-h-[980px] flex-col">
+    <main class="grid min-h-screen place-items-center bg-[linear-gradient(180deg,#fffdfa_0%,#fbf8f1_18%,#f8f3eb_100%)] px-6 py-10">
+        <section class="relative w-full max-w-xl overflow-hidden rounded-[42px] shadow-[0_28px_80px_rgba(25,36,31,0.18)]">
+            <div class="absolute inset-0" style="{{ $surfaceStyle }}"></div>
+            <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,44,32,0.14)_0%,rgba(18,42,31,0.1)_32%,rgba(11,18,12,0.3)_74%,rgba(11,18,12,0.5)_100%)]"></div>
+            <div class="relative flex min-h-[980px] flex-col p-8">
                 <div class="mt-24 flex flex-col items-center text-center">
                     <img
                         alt="{{ $page->name }}"

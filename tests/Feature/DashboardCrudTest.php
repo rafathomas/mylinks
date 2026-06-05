@@ -185,6 +185,39 @@ class DashboardCrudTest extends TestCase
             ->assertJsonPath('subscription_id', 'sub_test_123');
     }
 
+    public function test_subscription_intent_returns_stripe_error_details_when_stripe_rejects_the_request(): void
+    {
+        $page = LinkPage::factory()->create();
+
+        Config::set('services.stripe.secret_key', 'sk_test_123');
+        Config::set('services.stripe.publishable_key', 'pk_test_123');
+        Config::set('services.stripe.prices.monthly', 'price_monthly_test');
+
+        Http::fake([
+            'https://api.stripe.com/v1/customers' => Http::response([
+                'id' => 'cus_test_123',
+            ], 200),
+            'https://api.stripe.com/v1/subscriptions' => Http::response([
+                'error' => [
+                    'message' => 'Your card was declined.',
+                    'code' => 'card_declined',
+                    'decline_code' => 'insufficient_funds',
+                    'type' => 'card_error',
+                ],
+            ], 402),
+        ]);
+
+        $this->actingAs($page->user)
+            ->postJson(route('dashboard.billing.subscription-intent'), [
+                'billing_cycle' => 'monthly',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Your card was declined.')
+            ->assertJsonPath('stripe.code', 'card_declined')
+            ->assertJsonPath('stripe.decline_code', 'insufficient_funds')
+            ->assertJsonPath('stripe.type', 'card_error');
+    }
+
     public function test_user_can_create_update_and_delete_links(): void
     {
         $page = LinkPage::factory()->create();
