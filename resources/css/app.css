@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../**/*.jsx';
+
+@theme {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: 'Cormorant Garamond', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+}
+
+@layer base {
+    html {
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        letter-spacing: -0.01em;
+    }
+
+    input,
+    textarea,
+    button,
+    select {
+        font: inherit;
+    }
+}
+
+@keyframes plan-upgrade-pulse {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 10px 24px rgba(34, 197, 94, 0.18);
+    }
+
+    50% {
+        transform: translateY(-1px) scale(1.04);
+        box-shadow: 0 18px 36px rgba(34, 197, 94, 0.28);
+    }
+}
+
+@keyframes plan-upgrade-glow {
+    0%,
+    100% {
+        opacity: 0.45;
+        transform: scale(0.96);
+    }
+
+    50% {
+        opacity: 0.8;
+        transform: scale(1.06);
+    }
+}
+
+@layer utilities {
+    .plan-upgrade-button {
+        animation: plan-upgrade-pulse 1.8s ease-in-out infinite;
+    }
+
+    .plan-upgrade-glow {
+        animation: plan-upgrade-glow 1.8s ease-in-out infinite;
+    }
+}
