@@ -1,59 +1,132 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MeusLinks
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**MeusLinks** é uma aplicação web do tipo *link na bio* (estilo Linktree): cada usuário cria uma página pública personalizada, acessível por uma URL curta (`meusite.com/seu-nome`), onde reúne todos os seus links importantes em um só lugar.
 
-## About Laravel
+A plataforma oferece um painel completo para montar e publicar a página, acompanhar cliques em tempo real e gerenciar assinaturas pagas.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Funcionalidades
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- 🔗 **Página de links pública** com slug personalizado (`/{seu-nome}`)
+- 🎨 **Personalização visual** — imagem de perfil, imagem de fundo e ordenação dos links via drag-and-drop
+- 📊 **Analytics de cliques** — acompanhamento de acessos a cada link e às redes sociais
+- 🚀 **Onboarding guiado** para novos usuários, com verificação de disponibilidade de slug
+- 🔐 **Autenticação** completa (cadastro, login, logout) com proteção CSRF
+- 💳 **Assinaturas e cobrança** integradas ao **Stripe** (com webhook)
+- 📱 **Interface reativa** construída em React + Tailwind CSS
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Tecnologias
 
-## Learning Laravel
+| Camada      | Stack                                   |
+|-------------|-----------------------------------------|
+| Backend     | PHP 8.2+, Laravel 12                    |
+| Frontend    | React 19, Vite, Tailwind CSS 4          |
+| Pagamentos  | Stripe                                  |
+| Banco       | SQLite (padrão) / MySQL / PostgreSQL    |
+| Testes      | PHPUnit, Vitest, Testing Library        |
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Pré-requisitos
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- PHP **8.2** ou superior
+- Composer
+- Node.js + npm
+- Uma conta Stripe (para a parte de cobrança)
 
-## Laravel Sponsors
+## Como clonar o projeto
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+git clone <url-do-repositorio> MeusLinks
+cd MeusLinks
+```
 
-### Premium Partners
+## Instalação
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+A forma mais rápida é usar o script `setup` do Composer, que instala dependências, prepara o `.env`, gera a chave da aplicação, roda as migrations e faz o build do frontend:
 
-## Contributing
+```bash
+composer setup
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Instalação manual (passo a passo)
 
-## Code of Conduct
+Caso prefira fazer cada etapa manualmente:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+# 1. Dependências PHP
+composer install
 
-## Security Vulnerabilities
+# 2. Arquivo de ambiente
+cp .env.example .env
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# 3. Chave da aplicação
+php artisan key:generate
 
-## License
+# 4. Banco de dados (cria o arquivo SQLite, se necessário)
+touch database/database.sqlite
+php artisan migrate
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# 5. Dependências e build do frontend
+npm install
+npm run build
+```
+
+### Configuração do Stripe
+
+Adicione suas credenciais do Stripe ao arquivo `.env`:
+
+```env
+STRIPE_KEY=pk_test_...
+STRIPE_SECRET=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+## Como usar
+
+### Ambiente de desenvolvimento
+
+Para subir tudo de uma vez (servidor PHP, fila, logs e Vite), use:
+
+```bash
+composer dev
+```
+
+Ou, se preferir rodar os processos separadamente:
+
+```bash
+# Servidor Laravel
+php artisan serve
+
+# Front-end com hot reload
+npm run dev
+```
+
+A aplicação ficará disponível em **http://localhost:8000**.
+
+### Fluxo de uso
+
+1. Acesse a página inicial e crie sua conta (**/register**).
+2. Complete o **onboarding** escolhendo o slug da sua página.
+3. No **painel** (`/dashboard`), adicione e reordene seus links, personalize imagens de perfil/fundo.
+4. Clique em **Publicar** para deixar a página no ar.
+5. Sua página pública fica disponível em `http://localhost:8000/{seu-slug}`.
+
+## Testes
+
+```bash
+# Testes do backend (PHPUnit)
+composer test
+
+# Testes do frontend (Vitest)
+npm test
+```
+
+## Docker
+
+O projeto inclui um `compose.yaml` (Laravel Sail). Para subir o ambiente com Docker:
+
+```bash
+./vendor/bin/sail up
+```
+
+## Licença
+
+Software open-source licenciado sob a [licença MIT](https://opensource.org/licenses/MIT).
